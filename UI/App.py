@@ -23,6 +23,7 @@ from tkinter import filedialog, messagebox
 import customtkinter as ctk
 
 from Playback.Player import Player
+from UI.Components.effect_panel import EffectsPanel
 from UI.style import COLOR, FONT, SIZE, apply_theme
 from UI.Components.eq_panel      import EQPanel
 from UI.Components.transport_bar import TransportBar
@@ -43,7 +44,7 @@ class App(ctk.CTk):
 
     APP_TITLE  = "Apply FX"
     APP_WIDTH  = 780
-    APP_HEIGHT = 720
+    APP_HEIGHT = 920
     MIN_WIDTH  = 700
     MIN_HEIGHT = 620
 
@@ -90,13 +91,14 @@ class App(ctk.CTk):
 
     def _build_ui(self) -> None:
         """Tạo toàn bộ layout chính."""
-        self.rowconfigure(4, weight=1)      # EQ Panel co giãn
+        self.rowconfigure(5, weight=1)      # EQ Panel co giãn
         self.columnconfigure(0, weight=1)
 
         self._build_header()       # row 0
         self._build_file_info()    # row 1
         self._build_transports()   # row 2 & 3
         self._build_eq_panel()     # row 4
+        self._build_effects_panel()# row 5
 
     # --- Header ---
 
@@ -194,6 +196,13 @@ class App(ctk.CTk):
         self._eq_panel.grid(row=4, column=0,
                             padx=16, pady=(0, 12), sticky="nsew")
 
+    def _build_effects_panel(self):
+        self._effects_panel = EffectsPanel(
+            self,
+            on_preset_change=self._on_preset_change
+        )
+        self._effects_panel.grid(row=5, column=0,
+                                 padx=16, pady=(0, 14), sticky="nsew")
     # ------------------------------------------------------------------
     # Callbacks
     # ------------------------------------------------------------------
@@ -258,6 +267,16 @@ class App(ctk.CTk):
             self._player_prev.stop()
             self._load_preview_player()
             self._transport_prev.force_stop()
+
+    def _on_preset_change(self, preset) -> None:
+        """
+        Nhận preset từ EffectsPanel, áp dụng lên processor và cập nhật sliders.
+
+        Args:
+            preset (Preset): preset đã được chọn và Apply
+        """
+        self._processor.load_preset(preset)
+        self._eq_panel.set_values(self._processor.get_slider_values())
 
     # ------------------------------------------------------------------
     # Preview rendering
