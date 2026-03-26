@@ -15,7 +15,7 @@ from pathlib import Path
 
 
 # Các định dạng file được hỗ trợ
-SUPPORTED_EXTENSIONS = {".wav", ".flac", ".ogg", ".aiff", ".aif"}
+SUPPORTED_EXTENSIONS = {".wav", ".flac", ".ogg", ".aiff", ".aif",".mp3"}
 
 
 class AudioEngine:
@@ -45,9 +45,8 @@ class AudioEngine:
         """
         Đọc file âm thanh vào bộ nhớ.
 
-        Parameters
-        ----------
-        filepath : str — đường dẫn đến file âm thanh
+        Args:
+            filepath : str — đường dẫn đến file âm thanh
 
         Raises
         ------

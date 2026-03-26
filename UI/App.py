@@ -22,6 +22,7 @@ Layout tổng thể (từ trên xg):
 from tkinter import filedialog, messagebox
 import customtkinter as ctk
 
+from Playback.Player import Player
 from UI.style import COLOR, FONT, SIZE, apply_theme
 from UI.Components.eq_panel      import EQPanel
 from UI.Components.transport_bar import TransportBar
@@ -53,6 +54,14 @@ class App(ctk.CTk):
         self._engine    = AudioEngine()
         self._processor = DSPProcessor()
 
+        self._player_orig = Player(
+            on_tick= lambda curSec, totalSec: self._schedule_tick("orig", curSec, totalSec),
+            on_finish= lambda: self._schedule_finish("orig"),
+        )
+        self._player_prev = Player(
+            on_tick= lambda curSec, totalSec: self._schedule_tick("prev", curSec, totalSec),
+            on_finish= lambda: self._schedule_finish("prev"),
+        )
         self._setup_window()
         self._build_ui()
 
@@ -130,7 +139,6 @@ class App(ctk.CTk):
         self._btn_reset.grid(row=0, column=2, padx=(0, 20), pady=14)
 
 
-
     # --- File info bar ---
 
     def _build_file_info(self) -> None:
@@ -195,7 +203,7 @@ class App(ctk.CTk):
         path = filedialog.askopenfilename(
             title="Chọn file âm thanh",
             filetypes=[
-                ("Audio files", "*.wav *.flac *.ogg *.aiff *.aif"),
+                ("Audio files", "*.wav *.flac *.ogg *.aiff *.aif *.mp3"),
                 ("WAV",  "*.wav"),
                 ("FLAC", "*.flac"),
                 ("All",  "*.*"),
@@ -210,10 +218,19 @@ class App(ctk.CTk):
             messagebox.showerror("Lỗi đọc file", str(e))
             return
 
+        # Dừng cả 2 player, đề phòng đang phát, mà import
+        self._player_orig.stop()
+        self._player_prev.stop()
+        self._transport_orig.force_stop()
+        self._transport_prev.force_stop()
+
         # Cập nhật processor sample rate
         self._processor.samplerate = self._engine.samplerate
         self._processor.reset()
         self._eq_panel.reset()
+
+        # Load samples gốc vào Original player
+        self._player_orig.load(self._engine.get_stereo(), self._engine.samplerate)
 
         # Cập nhật UI
         self._lbl_file_info.configure(text=self._engine.info_str)
@@ -237,25 +254,100 @@ class App(ctk.CTk):
             value (float): giá trị mới
         """
         self._processor.set_param(key, value)
-        # Phase 4 sẽ trigger re-render preview ở đây
+        if self._player_prev.state == "playing":
+            self._player_prev.stop()
+            self._load_preview_player()
+            self._transport_prev.force_stop()
 
+    # ------------------------------------------------------------------
+    # Preview rendering
+    # ------------------------------------------------------------------
+    def _load_preview_player(self) -> None:
+        """
+        Render samples gốc qua toàn bộ DSP chain rồi load vào Preview player.
+        Gọi trước mỗi lần Play Preview hoặc khi params thay đổi lúc đang play.
+        """
+        if not self._engine.is_loaded():
+            return
+        processed = self._processor.process(self._engine.get_stereo())
+        self._player_prev.load(processed, self._engine.samplerate)
+
+    def _schedule_tick(self, track: str, cur: float, tot: float) -> None:
+        """
+        Nhận tick từ Player worker thread, chuyển về main thread qua after().
+
+        Args:
+            track (str): "orig" hoặc "prev"
+            cur (float): giây hiện tại
+            tot (float): tổng giây
+        """
+        self.after(0, self._do_tick, track, cur, tot)
+
+    def _do_tick(self, track: str, cur: float, tot: float) -> None:
+        """
+        Cập nhật timestamp trên TransportBar (chạy trên main thread).
+
+        Args:
+            track (str): "orig" hoặc "prev"
+            cur (float): giây hiện tại
+            tot (float): tổng giây
+        """
+        bar = self._transport_orig if track == "orig" else self._transport_prev
+        bar.update_time(cur, tot)
     def _on_transport(self, track: str, action: str) -> None:
         """
-        Stub xử lý transport — sẽ kết nối Player thực ở Phase 4.
+        Stub xử lý transport
 
         Args:
             track (str): "orig" hoặc "prev"
             action (str): "play" | "pause" | "stop"
         """
+        player  = self._player_orig if track == "orig" else self._player_prev
+        other_player = self._player_prev if track == "orig" else self._player_orig
+        other_transport = self._transport_prev if track == "orig" else self._transport_orig
         # Khi 1 track play, dừng track kia
         if action == "play":
-            if track == "orig":
-                self._transport_prev.force_stop()
-            else:
-                self._transport_orig.force_stop()
+            if other_player.state == "playing":
+                other_player.stop()
+                other_transport.force_stop()
+            if track == "prev":
+                self._load_preview_player()
+            player.play()
 
-        print(f"[Transport] {track} → {action}")  # debug, xóa ở phase 4
+        elif action == "pause":
+            player.pause()
 
+        elif action == "stop":
+            player.stop()
+
+        print(f"[Transport] {track} - {action}")
+
+    def _schedule_finish(self, track: str):
+        """
+       Nhận tín hiệu hết file từ worker thread, chuyển về main thread.
+
+       Args:
+           track (str): "orig" hoặc "prev"
+       """
+        self.after(0, self._do_finish, track)
+
+    def _do_finish(self, track: str) -> None:
+        """
+        Phát xong: reset TransportBar, timestamp về 00:00.
+
+        Args:
+            track (str): "orig" hoặc "prev"
+        """
+        bar = self._transport_orig if track == "orig" else self._transport_prev
+        total = self._engine.duration_sec if self._engine.is_loaded() else 0
+        bar.force_stop()
+        bar.update_time(0, total)
+
+    def _on_close(self) -> None:
+        """Dừng tất cả player trước khi thoát để tránh thread leak."""
+        self._player_orig.stop()
+        self._player_prev.stop()
+        self.destroy()
 
 def run() -> None:
     """Khởi chạy ứng dụng."""
