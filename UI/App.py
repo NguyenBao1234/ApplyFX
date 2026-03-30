@@ -24,6 +24,7 @@ import customtkinter as ctk
 
 from Playback.Player import Player
 from UI.Components.effect_panel import EffectsPanel
+from UI.Components.export_panel import ExportPanel
 from UI.style import COLOR, FONT, SIZE, apply_theme
 from UI.Components.eq_panel      import EQPanel
 from UI.Components.transport_bar import TransportBar
@@ -44,9 +45,9 @@ class App(ctk.CTk):
 
     APP_TITLE  = "Apply FX"
     APP_WIDTH  = 780
-    APP_HEIGHT = 920
+    APP_HEIGHT = 980
     MIN_WIDTH  = 700
-    MIN_HEIGHT = 620
+    MIN_HEIGHT = 980
 
     def __init__(self):
         apply_theme()
@@ -91,7 +92,7 @@ class App(ctk.CTk):
 
     def _build_ui(self) -> None:
         """Tạo toàn bộ layout chính."""
-        self.rowconfigure(5, weight=1)      # EQ Panel co giãn
+        self.rowconfigure(4, weight=1)
         self.columnconfigure(0, weight=1)
 
         self._build_header()       # row 0
@@ -99,6 +100,7 @@ class App(ctk.CTk):
         self._build_transports()   # row 2 & 3
         self._build_eq_panel()     # row 4
         self._build_effects_panel()# row 5
+        self._build_export_panel()
 
     # --- Header ---
 
@@ -203,6 +205,17 @@ class App(ctk.CTk):
         )
         self._effects_panel.grid(row=5, column=0,
                                  padx=16, pady=(0, 14), sticky="nsew")
+
+    def _build_export_panel(self):
+            """Export Panel: chọn format và xuất file đã xử lý."""
+            self._export_panel = ExportPanel(
+                self,
+                get_engine=lambda: self._engine,
+                get_processor=lambda: self._processor,
+            )
+            self._export_panel.grid(row=6, column=0,
+                                    padx=16, pady=(0, 14), sticky="ew")
+
     # ------------------------------------------------------------------
     # Callbacks
     # ------------------------------------------------------------------
