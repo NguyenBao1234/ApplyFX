@@ -165,7 +165,7 @@ class TransportBar(ctk.CTkFrame):
             total_sec (float): tổng thời lượng (giây)
         """
         self._lbl_time.configure(text=f"{_fmt(current_sec)} / {_fmt(total_sec)}")
-        print(f"{_fmt(current_sec)} / {_fmt(total_sec)}")
+        print(f"Transpot_bar/Update_time:{_fmt(current_sec)} / {_fmt(total_sec)}")
 
     def force_stop(self) -> None:
         """

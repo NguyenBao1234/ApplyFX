@@ -3,13 +3,6 @@ export_panel.py
 ---------------
 Panel xuất file âm thanh đã qua DSP ra đĩa.
 
-Bố cục:
-  ┌──────────────────────────────────────────────────┐
-  │  EXPORT          [Format: WAV ▼]  [📁 Export]   │
-  │  Output: C:/path/to/output.wav          [Browse] │
-  │  [████████████████████░░░░░░] 72%  Đang xử lý..│
-  └──────────────────────────────────────────────────┘
-
 Render toàn bộ DSP chain trên thread riêng để không
 block UI, hiển thị progress bar theo từng chunk.
 """
